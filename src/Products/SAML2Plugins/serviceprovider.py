@@ -181,20 +181,56 @@ class SAML2ServiceProvider:
         """
         return self.default_idp or None
 
+    # @security.private
+    # def getIdPAuthenticationData(self, request, idp_entityid=None):
+    #     """ Prepare a SAML 2.0 authentication request
+
+    #     Args:
+    #         request (REQUEST): The current Zope request object
+
+    #     Kwargs:
+    #         idp_entityid (str): The IdP entity ID to use. Defaults to the
+    #             Identity Provider selected on the ZMI Properties tab.
+
+    #     Returns:
+    #         Data to perform an authentication request, a mapping with keys
+    #         ``headers``, ``data`` and ``status``.
+    #     """
+    #     return_url = request.get('came_from', '')
+
+    #     if not return_url:
+    #         return_url = request.get('ACTUAL_URL')
+    #         if return_url:
+    #             qs = request.get('QUERY_STRING')
+    #             if qs:
+    #                 return_url = f'{return_url}?{qs}'
+
+    #     if not idp_entityid:
+    #         idp_entityid = self.getDefaultIdPEntityID()
+
+    #     client = self.getPySAML2Client()
+    #     (req_id,
+    #      binding,
+    #      http_info) = client.prepare_for_negotiated_authenticate(
+    #                     entityid=idp_entityid,
+    #                     relay_state=return_url)
+ 
+    #     return http_info
+    
     @security.private
     def getIdPAuthenticationData(self, request, idp_entityid=None):
-        """ Prepare a SAML 2.0 authentication request
+        """
+        Prepare a SAML 2.0 authentication request (AuthnRequest) with optional extensions.
+
+        This method dynamically attaches BundID/Elster-specific SAML2 extensions if configured.
+        If no extension config is present, it falls back to the original prepare_for_negotiated_authenticate.
 
         Args:
-            request (REQUEST): The current Zope request object
-
-        Kwargs:
-            idp_entityid (str): The IdP entity ID to use. Defaults to the
-                Identity Provider selected on the ZMI Properties tab.
+            request: Zope REQUEST object.
+            idp_entityid (str, optional): Optional Identity Provider entityID.
 
         Returns:
-            Data to perform an authentication request, a mapping with keys
-            ``headers``, ``data`` and ``status``.
+            dict: HTTP request info needed to initiate SAML login.
         """
         return_url = request.get('came_from', '')
 
@@ -209,14 +245,53 @@ class SAML2ServiceProvider:
             idp_entityid = self.getDefaultIdPEntityID()
 
         client = self.getPySAML2Client()
-        (req_id,
-         binding,
-         http_info) = client.prepare_for_negotiated_authenticate(
-                        entityid=idp_entityid,
-                        relay_state=return_url)
+
+        # Default: No extensions or prefixes
+        extensions = None
+        nsprefix = None
+
+        try:
+            config = self.getConfiguration()
+            saml2_ext_config = config.get('saml2_extension')
+            if saml2_ext_config:
+                from saml2.samlp import Extensions
+                from Products.SAML2Plugins.ExtensionBuilder import ExtensionBuilder
+                builder = ExtensionBuilder(saml2_ext_config)
+                extensions_obj = Extensions()
+                builder.add_extensions(extensions_obj)
+                extensions = extensions_obj
+                nsprefix = saml2_ext_config.get('nsprefix', {})
+        except Exception as exc:
+            logger.error(f"Error creating SAML2 extensions: {exc}")
+
+        # Decide which path to use
+        if extensions:
+            # New style: With extensions
+            
+            # req_id, http_info = client.prepare_for_authenticate(
+            #     entityid=idp_entityid,
+            #     relay_state=return_url,
+            #     extensions=extensions,
+            #     nsprefix=nsprefix
+            # )
+            
+            req_id, binding_used, http_info = client.prepare_for_negotiated_authenticate(
+                entityid=idp_entityid,
+                relay_state=return_url,
+                extensions=extensions,
+                nsprefix=nsprefix
+            )
+
+        else:
+            # Original style: No extensions
+            req_id, binding, http_info = client.prepare_for_negotiated_authenticate(
+                entityid=idp_entityid,
+                relay_state=return_url
+            )
 
         return http_info
 
+ 
     @security.private
     def handleACSRequest(self, saml_response, binding='POST'):
         """ Handle incoming SAML 2.0 assertions """

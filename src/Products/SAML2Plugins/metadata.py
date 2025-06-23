@@ -14,6 +14,7 @@
 """
 
 import copy
+import pdb
 from xml.dom.minidom import parseString
 
 from saml2.config import Config
@@ -51,6 +52,7 @@ class SAML2MetadataProvider:
         Returns:
             An unencoded string representing the XML metadata description
         """
+        
         nspair = {"xs": "http://www.w3.org/2001/XMLSchema"}
         config = copy.deepcopy(self.getConfiguration())
         xmldoc = None
@@ -94,6 +96,7 @@ class SAML2MetadataProvider:
 
         # Transform to a pretty representation
         data_dom = parseString(xmldoc)
+        
         return data_dom.toprettyxml(indent='  ')
 
         return xmldoc

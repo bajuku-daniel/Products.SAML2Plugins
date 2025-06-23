@@ -15,6 +15,8 @@
 
 import logging
 import os
+import pdb
+
 
 from xmlschema.resources import XMLResource
 
@@ -59,7 +61,6 @@ def pysaml_add_xml_schemata():
         schema_validator_default.add_schema(source=xml_resource, build=True)
 
     schema._schema_validator_default = schema_validator_default
-
 
 def applyPatches():
     logger.debug('Applying monkey patches')
