@@ -1,8 +1,30 @@
 Change log
 ==========
 
-1.0 (unreleased)
-----------------
+0.9.4 (unreleased)
+------------------
+
+
+0.9.3 (2025-11-19)
+------------------
+
+- Move all package metadata to ``pyproject.toml``.
+
+
+0.9.2 (2025-11-19)
+------------------
+
+- Fix bad release.
+
+
+0.9.1 (2025-11-19)
+------------------
+
+- Convert to PEP 420-style namespace package
+
+- Add support for Python 3.13, 3.14.
+
+- Drop support for Python 3.9.
 
 - Check IdP metadata for a configured single logout service before logging out.
 
