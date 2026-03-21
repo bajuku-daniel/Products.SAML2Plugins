@@ -322,6 +322,25 @@ class SAML2ServiceProvider:
             # saml_resp.get_subject(): NameID instance for user id
             # saml_resp.ava: contains result of saml_resp.get_identity()
             # saml_resp.session_info(): user attributes plus session info
+            import xml.etree.ElementTree as ET
+            EKONA_NS = "http://www.elster.de/schema/ekona/saml/extensions"
+            pseudonyme_map = {}
+            try:
+                raw_xml = saml_resp.xmlstr
+                if isinstance(raw_xml, bytes):
+                    raw_xml = raw_xml.decode("utf-8")
+                root = ET.fromstring(raw_xml)
+                for elem in root.iter(f"{{{EKONA_NS}}}Pseudonyme"):
+                    empfaenger = elem.get("empfaenger")
+                    if empfaenger and elem.text:
+                        pseudonyme_map[empfaenger] = elem.text.strip()
+                logger.debug(
+                    f'handleACSRequest: Pseudonyme-Empfaenger: {list(pseudonyme_map.keys())}')
+            except Exception as exc:
+                logger.warning(f'handleACSRequest: Pseudonyme-Extraktion fehlgeschlagen: {exc}')
+            
+            
+            
             name_id_object = saml_resp.get_subject()
             user_info['name_id'] = nameid_to_str(name_id_object)
             user_info['issuer'] = saml_resp.issuer()
@@ -337,14 +356,15 @@ class SAML2ServiceProvider:
                         value = ''
                     else:
                         value = value[0]
-                user_info[key] = value
+                
+                if key == 'Bausteinpseudonyme' and pseudonyme_map:
+                    user_info[key] = pseudonyme_map
+                else:
+                    user_info[key] = value
 
-                # If a login attribute has been specified, use
-                # that as Zope login
                 if self.login_attribute and key == self.login_attribute:
                     user_info['_login'] = value
 
-                # Initialize session activity marker
                 user_info['last_active'] = int(time.time())
 
             if not user_info.get('_login'):
